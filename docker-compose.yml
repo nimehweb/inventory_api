@@ -1,0 +1,68 @@
+services:
+  db:
+    image: postgres:16
+    environment:
+      POSTGRES_DB: inventory_db
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: devpassword
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d inventory_db"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  web:
+    build: .
+    command: >
+      sh -c "python manage.py migrate &&
+             python manage.py runserver 0.0.0.0:8000"
+    environment:
+      DB_NAME: inventory_db
+      DB_USER: postgres
+      DB_PASSWORD: devpassword
+      DB_HOST: db
+      DB_PORT: "5432"
+      DJANGO_ALLOWED_HOSTS: "localhost,127.0.0.1,0.0.0.0,web,host.docker.internal"
+    ports:
+      - "8000:8000"
+    volumes:
+      - .:/app
+    depends_on:
+      db:
+        condition: service_healthy
+
+  pgadmin:
+    image: dpage/pgadmin4
+    environment:
+      PGADMIN_DEFAULT_EMAIL: admin@example.com
+      PGADMIN_DEFAULT_PASSWORD: devpassword
+      PGADMIN_CONFIG_SERVER_MODE: "False"
+      PGADMIN_CONFIG_MASTER_PASSWORD_REQUIRED: "False"
+    ports:
+      - "5050:80"
+    volumes:
+      - pgadmin:/var/lib/pgadmin
+    depends_on:
+      db:
+        condition: service_healthy
+
+  k6:
+    image: grafana/k6
+    profiles: ["loadtest"]
+    environment:
+      BASE_URL: "${K6_BASE_URL:-http://web:8000}"
+      PRODUCT_ID: "${PRODUCT_ID:-1}"
+      VUS: "${VUS:-20}"
+    volumes:
+      - ./loadtest:/scripts
+    command: run /scripts/checkout.js
+    depends_on:
+      - web
+
+volumes:
+  pgdata:
+  pgadmin:

@@ -1,0 +1,18 @@
+.venv/
+venv/
+env/
+
+__pycache__/
+*.py[cod]
+*.egg-info/
+
+.git/
+.gitignore
+
+.env
+
+# Not needed inside the web image
+docs/
+loadtest/
+*.docx
+~$*.docx
